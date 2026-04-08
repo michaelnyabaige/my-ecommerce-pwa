@@ -58,11 +58,13 @@ class Product(db.Model):
             return self.price * (1 - (self.discount_percent / 100))
         return self.price
 
+
 class ProductImage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(200), nullable=False)
     is_cover = db.Column(db.Boolean, default=False)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -76,6 +78,7 @@ class Order(db.Model):
     items_ordered = db.Column(db.Text, nullable=False)
     delivery_notes = db.Column(db.Text, nullable=True)
 
+
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
@@ -83,13 +86,17 @@ class OrderItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     price_at_purchase = db.Column(db.Float, nullable=False)
 
-UPLOAD_FOLDER = 'static/uploads/products'
+
+# --- CONFIG ---
+UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads', 'products')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 # --- HELPER FUNCTIONS ---
 def generate_whatsapp_link(order, cart_items):
@@ -110,6 +117,7 @@ def generate_whatsapp_link(order, cart_items):
     encoded_msg = urllib.parse.quote(message)
     return f"https://wa.me/{phone_number}?text={encoded_msg}"
 
+
 # --- ADMIN SECURITY ---
 def admin_required(f):
     @wraps(f)
@@ -119,16 +127,19 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
 # --- PUBLIC ROUTES ---
 @app.route('/')
 def home():
     products = Product.query.filter_by(is_deleted=False).all()
     return render_template('index.html', products=products)
 
+
 @app.route('/product/<string:slug>')
 def product_detail(slug):
     product = Product.query.filter_by(slug=slug).first_or_404()
     return render_template('product_detail.html', product=product)
+
 
 # --- BAG MANAGEMENT ---
 @app.route('/add_to_cart/<int:product_id>', methods=['POST'])
@@ -155,6 +166,7 @@ def add_to_cart(product_id):
     
     return jsonify({"success": True, "cart_count": sum(cart.values())})
 
+
 @app.route('/remove_from_cart/<int:product_id>')
 def remove_from_cart(product_id):
     if 'cart' in session and isinstance(session['cart'], dict):
@@ -166,10 +178,12 @@ def remove_from_cart(product_id):
             session.modified = True
     return redirect(url_for('checkout'))
 
+
 @app.route('/clear_cart')
 def clear_cart():
     session.pop('cart', None)
     return redirect(url_for('checkout'))
+
 
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
@@ -228,6 +242,7 @@ def checkout():
 
     return render_template('checkout.html', items=cart_items, total=total)
 
+
 @app.route('/stk_push', methods=['POST'])
 def stk_push():
     phone = request.form.get('phone')
@@ -266,6 +281,7 @@ def stk_push():
     session.pop('cart', None)
     return render_template('success.html', order=new_order, wa_link=wa_link)
 
+
 # --- CUSTOMER & ADMIN ROUTES ---
 @app.route('/portal', methods=['GET', 'POST'])
 def customer_portal():
@@ -277,23 +293,22 @@ def customer_portal():
             orders = Order.query.filter_by(customer_phone=phone_queried).order_by(Order.date_ordered.desc()).all()
     return render_template('portal.html', orders=orders, phone=phone_queried)
 
+
 @app.route('/admin/manage')
 @admin_required
 def manage_products():
-    # Get the search term from the URL (e.g., /admin/manage?q=vitz)
     query = request.args.get('q', '').strip()
     
     if query:
-        # Search for products where name OR sku contains the query (case-insensitive)
         products = Product.query.filter(
             Product.is_deleted == False,
             (Product.name.ilike(f"%{query}%")) | (Product.sku.ilike(f"%{query}%"))
         ).all()
     else:
-        # If no search, show all active products
         products = Product.query.filter_by(is_deleted=False).all()
         
     return render_template('manage.html', products=products, search_query=query)
+
 
 @app.route('/admin/add', methods=['GET', 'POST'])
 @admin_required
@@ -331,6 +346,7 @@ def add_product():
         return redirect(url_for('manage_products'))
     return render_template('add_product.html')
 
+
 @app.route('/admin/edit/<int:product_id>', methods=['GET', 'POST'])
 @admin_required
 def edit_product(product_id):
@@ -358,6 +374,7 @@ def edit_product(product_id):
         return redirect(url_for('manage_products'))
     return render_template('edit_product.html', product=product)
 
+
 @app.route('/admin/delete/<int:product_id>', methods=['POST'])
 @admin_required
 def delete_product(product_id):
@@ -366,11 +383,13 @@ def delete_product(product_id):
     db.session.commit()
     return redirect(url_for('manage_products'))
 
+
 @app.route('/admin/bin')
 @admin_required
 def recycle_bin():
     deleted_products = Product.query.filter_by(is_deleted=True).all()
     return render_template('bin.html', products=deleted_products)
+
 
 @app.route('/admin/restore/<int:product_id>', methods=['POST'])
 @admin_required
@@ -380,6 +399,7 @@ def restore_product(product_id):
     db.session.commit()
     return redirect(url_for('recycle_bin'))
 
+
 @app.route('/admin/permanent_delete/<int:product_id>', methods=['POST'])
 @admin_required
 def permanent_delete(product_id):
@@ -387,6 +407,7 @@ def permanent_delete(product_id):
     db.session.delete(product)
     db.session.commit()
     return redirect(url_for('recycle_bin'))
+
 
 @app.route('/admin/orders')
 @admin_required
@@ -396,6 +417,7 @@ def view_orders():
     order_count = len(orders)
     avg_order = total_rev / order_count if order_count > 0 else 0
     return render_template('orders.html', orders=orders, total_revenue=total_rev, order_count=order_count, avg_order=avg_order)
+
 
 @app.route('/admin/export_orders')
 @admin_required
@@ -417,6 +439,7 @@ def export_orders():
     output.seek(0)
     return send_file(output, as_attachment=True, download_name="Orders.xlsx")
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -425,10 +448,12 @@ def login():
             return redirect(url_for('manage_products'))
     return render_template('login.html')
 
+
 @app.route('/logout')
 def logout():
     session.pop('is_admin', None)
     return redirect(url_for('home'))
+
 
 # --- BULK MANAGEMENT ---
 @app.route('/admin/download_template')
@@ -449,7 +474,6 @@ def download_template():
     df = pd.concat([df, pd.DataFrame([sample_data])], ignore_index=True)
 
     output = io.BytesIO()
-    # Defaulting template to Excel as it is more common for bulk entry
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Products')
     
@@ -486,11 +510,8 @@ def bulk_upload():
         if not all(col in df.columns for col in required):
             return f"Missing required columns: {required}", 400
 
-        # We use no_autoflush to prevent SQLAlchemy from trying to write to the DB 
-        # until we are completely finished with the loop.
         with db.session.no_autoflush:
             for index, row in df.iterrows():
-                # Handle empty SKUs
                 sku_val = str(row.get('sku', ''))
                 if sku_val.lower() == 'nan' or not sku_val:
                     sku_val = None
@@ -505,11 +526,8 @@ def bulk_upload():
                     specifications=str(row.get('specifications', ''))
                 )
                 
-                # Generate a unique slug
                 base_slug = re.sub(r'[^\w\s-]', '', new_p.name).strip().lower()
                 base_slug = re.sub(r'[-\s]+', '-', base_slug)
-                
-                # Add a unique suffix for THIS upload session to prevent collisions
                 unique_suffix = int(time.time()) + index
                 new_p.slug = f"{base_slug}-{unique_suffix}"
                 
@@ -520,12 +538,13 @@ def bulk_upload():
 
     except Exception as e:
         db.session.rollback()
-        # Providing more detail in the error message for debugging
         return f"Error processing file: {str(e)}", 500
 
-# --- INITIALIZE DATABASE (FIX FOR RENDER) ---
-with app.app_context():
-    db.create_all()
 
+# --- RUN ---
 if __name__ == '__main__':
-    app.run(debug=True)
+    with app.app_context():
+        db.create_all()
+    # Production-ready (Render / Heroku / etc.)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
