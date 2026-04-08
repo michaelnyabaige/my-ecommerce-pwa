@@ -9,17 +9,31 @@ import time
 import re
 from werkzeug.utils import secure_filename
 import urllib.parse
+import logging
 
+# ========================= APP CONFIG =========================
 app = Flask(__name__)
 app.secret_key = 'nganya-tech-2026-key'
 
-# --- DATABASE CONFIG ---
 basedir = os.path.abspath(os.path.dirname(__file__))
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Upload Folder
+UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads', 'products')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+
 db = SQLAlchemy(app)
 
-# --- MODELS ---
+# ========================= LOGGING =========================
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ========================= MODELS =========================
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sku = db.Column(db.String(50), unique=True, nullable=True)
@@ -87,38 +101,28 @@ class OrderItem(db.Model):
     price_at_purchase = db.Column(db.Float, nullable=False)
 
 
-# --- CONFIG ---
-UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads', 'products')
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-
+# ========================= HELPERS =========================
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-# --- HELPER FUNCTIONS ---
 def generate_whatsapp_link(order, cart_items):
     phone_number = "254712345678" 
-    items_text = ""
-    for item in cart_items:
-        items_text += f"- {item['product'].name} (x{item['quantity']})\n"
+    items_text = "\n".join([f"- {item['product'].name} (x{item['quantity']})" for item in cart_items])
     
     message = (
         f"👋 *New Order #{order.id}*\n\n"
-        f"*Customer:* {order.customer_name}\n"
-        f"*Location:* {order.location}\n"
+        f"*Customer:* {order.customer_name or 'N/A'}\n"
+        f"*Location:* {order.location or 'N/A'}\n"
         f"*Phone:* {order.customer_phone}\n\n"
         f"*Items:*\n{items_text}\n"
         f"*Total:* {order.total_amount:,.0f} KES\n\n"
-        f"Please confirm availability for delivery to {order.location}."
+        f"Please confirm availability."
     )
     encoded_msg = urllib.parse.quote(message)
     return f"https://wa.me/{phone_number}?text={encoded_msg}"
 
 
-# --- ADMIN SECURITY ---
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -128,7 +132,20 @@ def admin_required(f):
     return decorated_function
 
 
-# --- PUBLIC ROUTES ---
+# ========================= DB INIT =========================
+def init_db():
+    with app.app_context():
+        try:
+            db.create_all()
+            logger.info("✅ Database initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Database initialization failed: {e}")
+
+init_db()
+
+
+# ========================= ROUTES =========================
+
 @app.route('/')
 def home():
     products = Product.query.filter_by(is_deleted=False).all()
@@ -141,7 +158,6 @@ def product_detail(slug):
     return render_template('product_detail.html', product=product)
 
 
-# --- BAG MANAGEMENT ---
 @app.route('/add_to_cart/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
     if 'cart' not in session or not isinstance(session['cart'], dict):
@@ -150,20 +166,19 @@ def add_to_cart(product_id):
     data = request.get_json() or {}
     try:
         qty = int(data.get('quantity', 1))
-    except (ValueError, TypeError):
+    except:
         qty = 1
     
     product = Product.query.get_or_404(product_id)
     if product.stock < qty:
         return jsonify({"success": False, "message": f"Only {product.stock} available"})
 
-    cart = dict(session['cart']) 
+    cart = dict(session['cart'])
     pid_str = str(product_id)
     cart[pid_str] = cart.get(pid_str, 0) + qty
     
     session['cart'] = cart
     session.modified = True
-    
     return jsonify({"success": True, "cart_count": sum(cart.values())})
 
 
@@ -191,8 +206,7 @@ def checkout():
     if not isinstance(cart, dict):
         cart = {}
         session['cart'] = {}
-        session.modified = True
-        
+
     cart_items = []
     total = 0
     for pid_str, qty in cart.items():
@@ -203,26 +217,20 @@ def checkout():
             total += subtotal
 
     if request.method == 'POST':
-        if not cart:
+        if not cart_items:
             return redirect(url_for('home'))
 
-        customer_name = request.form.get('name')
-        phone = request.form.get('phone')
-        location = request.form.get('location')
-        email = request.form.get('email')
-
-        summary = ", ".join([f"{item['product'].name} (x{item['quantity']})" for item in cart_items])
         new_order = Order(
-            customer_name=customer_name,
-            customer_phone=phone,
-            location=location,
-            customer_email=email,
+            customer_name=request.form.get('name'),
+            customer_phone=request.form.get('phone'),
+            location=request.form.get('location'),
+            customer_email=request.form.get('email'),
             total_amount=total,
-            items_ordered=summary,
+            items_ordered=", ".join([f"{item['product'].name} (x{item['quantity']})" for item in cart_items]),
             status='Pending'
         )
         db.session.add(new_order)
-        db.session.flush() 
+        db.session.flush()
 
         for item in cart_items:
             oi = OrderItem(
@@ -237,7 +245,6 @@ def checkout():
         db.session.commit()
         wa_link = generate_whatsapp_link(new_order, cart_items)
         session.pop('cart', None)
-
         return render_template('checkout_success.html', order=new_order, wa_link=wa_link)
 
     return render_template('checkout.html', items=cart_items, total=total)
@@ -247,13 +254,14 @@ def checkout():
 def stk_push():
     phone = request.form.get('phone')
     notes = request.form.get('notes')
-    cart_summary = []
-    cart_items_for_wa = [] 
-    total = 0
     cart = session.get('cart', {})
     
-    if not cart or not isinstance(cart, dict):
+    if not cart:
         return redirect(url_for('home'))
+
+    cart_summary = []
+    cart_items_for_wa = []
+    total = 0
 
     for pid_str, qty in cart.items():
         item = Product.query.get(int(pid_str))
@@ -262,27 +270,23 @@ def stk_push():
             cart_summary.append(f"{item.name} (x{qty})")
             cart_items_for_wa.append({'product': item, 'quantity': qty})
             total += (item.current_price * qty)
-    
-    if not cart_summary:
-        return redirect(url_for('home'))
 
     new_order = Order(
-        customer_name="M-Pesa Customer", 
-        customer_phone=phone, 
-        total_amount=total, 
-        items_ordered=", ".join(cart_summary), 
+        customer_name="M-Pesa Customer",
+        customer_phone=phone,
+        total_amount=total,
+        items_ordered=", ".join(cart_summary),
         delivery_notes=notes,
-        location="M-Pesa Provided" 
+        location="M-Pesa Provided"
     )
     db.session.add(new_order)
     db.session.commit()
-    
+
     wa_link = generate_whatsapp_link(new_order, cart_items_for_wa)
     session.pop('cart', None)
     return render_template('success.html', order=new_order, wa_link=wa_link)
 
 
-# --- CUSTOMER & ADMIN ROUTES ---
 @app.route('/portal', methods=['GET', 'POST'])
 def customer_portal():
     orders = []
@@ -298,7 +302,6 @@ def customer_portal():
 @admin_required
 def manage_products():
     query = request.args.get('q', '').strip()
-    
     if query:
         products = Product.query.filter(
             Product.is_deleted == False,
@@ -306,7 +309,6 @@ def manage_products():
         ).all()
     else:
         products = Product.query.filter_by(is_deleted=False).all()
-        
     return render_template('manage.html', products=products, search_query=query)
 
 
@@ -316,7 +318,7 @@ def add_product():
     if request.method == 'POST':
         deadline_raw = request.form.get('discount_deadline')
         deadline = datetime.strptime(deadline_raw, '%Y-%m-%dT%H:%M') if deadline_raw else None
-        
+
         new_p = Product(
             sku=request.form.get('sku'),
             name=request.form.get('name'),
@@ -327,19 +329,17 @@ def add_product():
             description=request.form.get('description'),
             specifications=request.form.get('specifications')
         )
-        new_p.generate_slug() 
+        new_p.generate_slug()
         db.session.add(new_p)
         db.session.flush()
 
-        cover_index = int(request.form.get('cover_index', 0))
         files = request.files.getlist('product_images')
-        
         for index, file in enumerate(files):
             if file and allowed_file(file.filename):
                 ext = file.filename.rsplit('.', 1)[1].lower()
                 filename = secure_filename(f"prod_{new_p.id}_img_{index}_{int(time.time())}.{ext}")
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                new_img = ProductImage(filename=filename, product_id=new_p.id, is_cover=(index == cover_index))
+                new_img = ProductImage(filename=filename, product_id=new_p.id, is_cover=(index == 0))
                 db.session.add(new_img)
 
         db.session.commit()
@@ -355,7 +355,7 @@ def edit_product(product_id):
         deadline_raw = request.form.get('discount_deadline')
         product.sku = request.form.get('sku')
         product.name = request.form.get('name')
-        product.generate_slug() 
+        product.generate_slug()
         product.price = float(request.form.get('price'))
         product.discount_percent = int(request.form.get('discount_percent', 0))
         product.discount_deadline = datetime.strptime(deadline_raw, '%Y-%m-%dT%H:%M') if deadline_raw else None
@@ -369,7 +369,7 @@ def edit_product(product_id):
                 filename = secure_filename(f"prod_{product.id}_edit_{int(time.time())}_{file.filename}")
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                 db.session.add(ProductImage(filename=filename, product_id=product.id))
-        
+
         db.session.commit()
         return redirect(url_for('manage_products'))
     return render_template('edit_product.html', product=product)
@@ -416,22 +416,22 @@ def view_orders():
     total_rev = db.session.query(db.func.sum(Order.total_amount)).scalar() or 0
     order_count = len(orders)
     avg_order = total_rev / order_count if order_count > 0 else 0
-    return render_template('orders.html', orders=orders, total_revenue=total_rev, order_count=order_count, avg_order=avg_order)
+    return render_template('orders.html', orders=orders, total_revenue=total_rev, 
+                         order_count=order_count, avg_order=avg_order)
 
 
 @app.route('/admin/export_orders')
 @admin_required
 def export_orders():
     orders = Order.query.order_by(Order.date_ordered.desc()).all()
-    data = []
-    for o in orders:
-        data.append({
-            "ID": o.id,
-            "Date": o.date_ordered.strftime('%Y-%m-%d %H:%M'),
-            "Phone": o.customer_phone,
-            "Items": o.items_ordered,
-            "Total": o.total_amount
-        })
+    data = [{
+        "ID": o.id,
+        "Date": o.date_ordered.strftime('%Y-%m-%d %H:%M'),
+        "Phone": o.customer_phone,
+        "Items": o.items_ordered,
+        "Total": o.total_amount
+    } for o in orders]
+    
     df = pd.DataFrame(data)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -455,35 +455,20 @@ def logout():
     return redirect(url_for('home'))
 
 
-# --- BULK MANAGEMENT ---
 @app.route('/admin/download_template')
 @admin_required
 def download_template():
     columns = ['sku', 'name', 'price', 'discount_percent', 'stock', 'description', 'specifications']
     df = pd.DataFrame(columns=columns)
-    
-    sample_data = {
-        'sku': 'VITZ-001',
-        'name': 'Sample Product',
-        'price': 1500,
-        'discount_percent': 0,
-        'stock': 10,
-        'description': 'Sample description',
-        'specifications': 'Sample specs'
-    }
-    df = pd.concat([df, pd.DataFrame([sample_data])], ignore_index=True)
+    sample = {'sku': 'VITZ-001', 'name': 'Sample Product', 'price': 1500, 'discount_percent': 0,
+              'stock': 10, 'description': 'Sample', 'specifications': 'Sample specs'}
+    df = pd.concat([df, pd.DataFrame([sample])], ignore_index=True)
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Products')
-    
     output.seek(0)
-    return send_file(
-        output, 
-        as_attachment=True, 
-        download_name="product_upload_template.xlsx",
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+    return send_file(output, as_attachment=True, download_name="product_upload_template.xlsx")
 
 
 @app.route('/admin/bulk_upload', methods=['POST'])
@@ -491,7 +476,6 @@ def download_template():
 def bulk_upload():
     if 'file' not in request.files:
         return "No file part", 400
-    
     file = request.files['file']
     if file.filename == '':
         return "No selected file", 400
@@ -502,18 +486,14 @@ def bulk_upload():
         elif file.filename.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(file)
         else:
-            return "Unsupported file format. Please upload CSV or Excel.", 400
-            
+            return "Unsupported file format", 400
+
         df.columns = [c.strip().lower() for c in df.columns]
-        
-        required = ['name', 'price']
-        if not all(col in df.columns for col in required):
-            return f"Missing required columns: {required}", 400
 
         with db.session.no_autoflush:
             for index, row in df.iterrows():
                 sku_val = str(row.get('sku', ''))
-                if sku_val.lower() == 'nan' or not sku_val:
+                if sku_val.lower() in ['nan', ''] or not sku_val:
                     sku_val = None
 
                 new_p = Product(
@@ -525,26 +505,20 @@ def bulk_upload():
                     description=str(row.get('description', '')),
                     specifications=str(row.get('specifications', ''))
                 )
-                
-                base_slug = re.sub(r'[^\w\s-]', '', new_p.name).strip().lower()
-                base_slug = re.sub(r'[-\s]+', '-', base_slug)
-                unique_suffix = int(time.time()) + index
-                new_p.slug = f"{base_slug}-{unique_suffix}"
-                
+                base_slug = re.sub(r'[-\s]+', '-', re.sub(r'[^\w\s-]', '', new_p.name).strip().lower())
+                new_p.slug = f"{base_slug}-{int(time.time()) + index}"
                 db.session.add(new_p)
-        
+
         db.session.commit()
         return redirect(url_for('manage_products'))
 
     except Exception as e:
         db.session.rollback()
-        return f"Error processing file: {str(e)}", 500
+        logger.error(f"Bulk upload error: {e}")
+        return f"Error: {str(e)}", 500
 
 
-# --- RUN ---
+# ========================= RUN =========================
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    # Production-ready (Render / Heroku / etc.)
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port)
