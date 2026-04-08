@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 import urllib.parse
 import logging
 
-# ========================= APP CONFIG =========================
+# ========================= APP SETUP =========================
 app = Flask(__name__)
 app.secret_key = 'nganya-tech-2026-key'
 
@@ -29,7 +29,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 
 db = SQLAlchemy(app)
 
-# ========================= LOGGING =========================
+# Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -132,16 +132,10 @@ def admin_required(f):
     return decorated_function
 
 
-# ========================= DB INIT =========================
-def init_db():
-    with app.app_context():
-        try:
-            db.create_all()
-            logger.info("✅ Database initialized successfully")
-        except Exception as e:
-            logger.error(f"❌ Database initialization failed: {e}")
-
-init_db()
+# ========================= DATABASE INIT =========================
+with app.app_context():
+    db.create_all()
+    logger.info("✅ Database initialized successfully")
 
 
 # ========================= ROUTES =========================
@@ -173,7 +167,7 @@ def add_to_cart(product_id):
     if product.stock < qty:
         return jsonify({"success": False, "message": f"Only {product.stock} available"})
 
-    cart = dict(session['cart'])
+    cart = dict(session['cart']) 
     pid_str = str(product_id)
     cart[pid_str] = cart.get(pid_str, 0) + qty
     
@@ -230,7 +224,7 @@ def checkout():
             status='Pending'
         )
         db.session.add(new_order)
-        db.session.flush()
+        db.session.flush() 
 
         for item in cart_items:
             oi = OrderItem(
@@ -254,14 +248,13 @@ def checkout():
 def stk_push():
     phone = request.form.get('phone')
     notes = request.form.get('notes')
+    cart_summary = []
+    cart_items_for_wa = [] 
+    total = 0
     cart = session.get('cart', {})
     
-    if not cart:
+    if not cart or not isinstance(cart, dict):
         return redirect(url_for('home'))
-
-    cart_summary = []
-    cart_items_for_wa = []
-    total = 0
 
     for pid_str, qty in cart.items():
         item = Product.query.get(int(pid_str))
@@ -270,18 +263,21 @@ def stk_push():
             cart_summary.append(f"{item.name} (x{qty})")
             cart_items_for_wa.append({'product': item, 'quantity': qty})
             total += (item.current_price * qty)
+    
+    if not cart_summary:
+        return redirect(url_for('home'))
 
     new_order = Order(
-        customer_name="M-Pesa Customer",
-        customer_phone=phone,
-        total_amount=total,
-        items_ordered=", ".join(cart_summary),
+        customer_name="M-Pesa Customer", 
+        customer_phone=phone, 
+        total_amount=total, 
+        items_ordered=", ".join(cart_summary), 
         delivery_notes=notes,
-        location="M-Pesa Provided"
+        location="M-Pesa Provided" 
     )
     db.session.add(new_order)
     db.session.commit()
-
+    
     wa_link = generate_whatsapp_link(new_order, cart_items_for_wa)
     session.pop('cart', None)
     return render_template('success.html', order=new_order, wa_link=wa_link)
@@ -318,7 +314,7 @@ def add_product():
     if request.method == 'POST':
         deadline_raw = request.form.get('discount_deadline')
         deadline = datetime.strptime(deadline_raw, '%Y-%m-%dT%H:%M') if deadline_raw else None
-
+        
         new_p = Product(
             sku=request.form.get('sku'),
             name=request.form.get('name'),
@@ -329,17 +325,19 @@ def add_product():
             description=request.form.get('description'),
             specifications=request.form.get('specifications')
         )
-        new_p.generate_slug()
+        new_p.generate_slug() 
         db.session.add(new_p)
         db.session.flush()
 
+        cover_index = int(request.form.get('cover_index', 0))
         files = request.files.getlist('product_images')
+        
         for index, file in enumerate(files):
             if file and allowed_file(file.filename):
                 ext = file.filename.rsplit('.', 1)[1].lower()
                 filename = secure_filename(f"prod_{new_p.id}_img_{index}_{int(time.time())}.{ext}")
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                new_img = ProductImage(filename=filename, product_id=new_p.id, is_cover=(index == 0))
+                new_img = ProductImage(filename=filename, product_id=new_p.id, is_cover=(index == cover_index))
                 db.session.add(new_img)
 
         db.session.commit()
@@ -355,7 +353,7 @@ def edit_product(product_id):
         deadline_raw = request.form.get('discount_deadline')
         product.sku = request.form.get('sku')
         product.name = request.form.get('name')
-        product.generate_slug()
+        product.generate_slug() 
         product.price = float(request.form.get('price'))
         product.discount_percent = int(request.form.get('discount_percent', 0))
         product.discount_deadline = datetime.strptime(deadline_raw, '%Y-%m-%dT%H:%M') if deadline_raw else None
@@ -369,7 +367,7 @@ def edit_product(product_id):
                 filename = secure_filename(f"prod_{product.id}_edit_{int(time.time())}_{file.filename}")
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                 db.session.add(ProductImage(filename=filename, product_id=product.id))
-
+        
         db.session.commit()
         return redirect(url_for('manage_products'))
     return render_template('edit_product.html', product=product)
@@ -416,22 +414,22 @@ def view_orders():
     total_rev = db.session.query(db.func.sum(Order.total_amount)).scalar() or 0
     order_count = len(orders)
     avg_order = total_rev / order_count if order_count > 0 else 0
-    return render_template('orders.html', orders=orders, total_revenue=total_rev, 
-                         order_count=order_count, avg_order=avg_order)
+    return render_template('orders.html', orders=orders, total_revenue=total_rev, order_count=order_count, avg_order=avg_order)
 
 
 @app.route('/admin/export_orders')
 @admin_required
 def export_orders():
     orders = Order.query.order_by(Order.date_ordered.desc()).all()
-    data = [{
-        "ID": o.id,
-        "Date": o.date_ordered.strftime('%Y-%m-%d %H:%M'),
-        "Phone": o.customer_phone,
-        "Items": o.items_ordered,
-        "Total": o.total_amount
-    } for o in orders]
-    
+    data = []
+    for o in orders:
+        data.append({
+            "ID": o.id,
+            "Date": o.date_ordered.strftime('%Y-%m-%d %H:%M'),
+            "Phone": o.customer_phone,
+            "Items": o.items_ordered,
+            "Total": o.total_amount
+        })
     df = pd.DataFrame(data)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -460,9 +458,12 @@ def logout():
 def download_template():
     columns = ['sku', 'name', 'price', 'discount_percent', 'stock', 'description', 'specifications']
     df = pd.DataFrame(columns=columns)
-    sample = {'sku': 'VITZ-001', 'name': 'Sample Product', 'price': 1500, 'discount_percent': 0,
-              'stock': 10, 'description': 'Sample', 'specifications': 'Sample specs'}
-    df = pd.concat([df, pd.DataFrame([sample])], ignore_index=True)
+    sample_data = {
+        'sku': 'VITZ-001', 'name': 'Sample Product', 'price': 1500,
+        'discount_percent': 0, 'stock': 10, 'description': 'Sample description',
+        'specifications': 'Sample specs'
+    }
+    df = pd.concat([df, pd.DataFrame([sample_data])], ignore_index=True)
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -486,14 +487,18 @@ def bulk_upload():
         elif file.filename.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(file)
         else:
-            return "Unsupported file format", 400
-
+            return "Unsupported file format. Please upload CSV or Excel.", 400
+            
         df.columns = [c.strip().lower() for c in df.columns]
+        
+        required = ['name', 'price']
+        if not all(col in df.columns for col in required):
+            return f"Missing required columns: {required}", 400
 
         with db.session.no_autoflush:
             for index, row in df.iterrows():
                 sku_val = str(row.get('sku', ''))
-                if sku_val.lower() in ['nan', ''] or not sku_val:
+                if sku_val.lower() == 'nan' or not sku_val:
                     sku_val = None
 
                 new_p = Product(
@@ -508,17 +513,17 @@ def bulk_upload():
                 base_slug = re.sub(r'[-\s]+', '-', re.sub(r'[^\w\s-]', '', new_p.name).strip().lower())
                 new_p.slug = f"{base_slug}-{int(time.time()) + index}"
                 db.session.add(new_p)
-
+        
         db.session.commit()
         return redirect(url_for('manage_products'))
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Bulk upload error: {e}")
-        return f"Error: {str(e)}", 500
+        return f"Error processing file: {str(e)}", 500
 
 
-# ========================= RUN =========================
+# ========================= RUN APP =========================
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
