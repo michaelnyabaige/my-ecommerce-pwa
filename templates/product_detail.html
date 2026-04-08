@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 1100px; margin: 40px auto; padding: 0 22px;">
+    <div style="margin-bottom: 30px;">
+        <a href="/" style="text-decoration: none; color: #86868b; font-size: 14px; transition: color 0.2s;">← Back to
+            Shop</a>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start;" class="detail-grid">
+
+        <div>
+            {% set cover_image = product.images|selectattr('is_cover', 'equalto', True)|first %}
+            {% set display_img = cover_image.filename if cover_image else (product.images[0].filename if product.images
+            else 'placeholder.jpg') %}
+
+            <div
+                style="background: #fff; border-radius: 24px; padding: 40px; text-align: center; border: 1px solid rgba(0,0,0,0.05); overflow: hidden;">
+                <img id="mainImage" src="{{ url_for('static', filename='uploads/products/' + display_img) }}"
+                    style="max-width: 100%; height: 400px; object-fit: contain; transition: opacity 0.3s ease;">
+            </div>
+
+            {% if product.images|length > 1 %}
+            <div
+                style="display: flex; gap: 12px; margin-top: 20px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none;">
+                {% for img in product.images %}
+                <div onclick="changeImage('{{ url_for('static', filename='uploads/products/' + img.filename) }}')"
+                    style="flex: 0 0 70px; height: 70px; border: 1.5px solid #d2d2d7; border-radius: 12px; cursor: pointer; overflow: hidden; background: #fff; transition: border-color 0.2s;">
+                    <img src="{{ url_for('static', filename='uploads/products/' + img.filename) }}"
+                        style="width: 100%; height: 100%; object-fit: cover;">
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div style="padding-top: 10px;">
+            <div style="margin-bottom: 8px;">
+                <span
+                    style="font-size: 11px; color: #86868b; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">
+                    SKU: {{ product.sku if product.sku else 'N/A' }}
+                </span>
+            </div>
+
+            <h1
+                style="font-size: 44px; font-weight: 700; color: #1d1d1f; margin: 0 0 15px; letter-spacing: -1.2px; line-height: 1.1;">
+                {{ product.name }}
+            </h1>
+
+            <div style="margin-bottom: 25px;">
+                {% if product.stock > 10 %}
+                <span style="color: #24b47e; font-size: 14px; font-weight: 600;">● In Stock ({{ product.stock }}
+                    available)</span>
+                {% elif product.stock > 0 %}
+                <span style="color: #ff9500; font-size: 14px; font-weight: 600;">● Low Stock: Only {{ product.stock }}
+                    left</span>
+                {% else %}
+                <span style="color: #ff3b30; font-size: 14px; font-weight: 600;">● Out of Stock</span>
+                {% endif %}
+            </div>
+
+            <div style="margin-bottom: 35px; border-bottom: 1px solid #f5f5f7; padding-bottom: 25px;">
+                {% if product.is_discount_active %}
+                <div style="display: flex; align-items: baseline; gap: 12px;">
+                    <span style="font-size: 32px; font-weight: 700; color: #ff3b30;">{{
+                        "{:,.0f}".format(product.current_price) }} KES</span>
+                    <span style="font-size: 20px; color: #86868b; text-decoration: line-through;">{{
+                        "{:,.0f}".format(product.price) }} KES</span>
+                </div>
+                <div style="margin-top: 10px;">
+                    <span
+                        style="background: #ff3b30; color: #fff; font-size: 12px; font-weight: 700; padding: 5px 14px; border-radius: 20px;">SAVE
+                        {{ product.discount_percent }}%</span>
+                </div>
+                {% else %}
+                <span style="font-size: 32px; font-weight: 700; color: #1d1d1f;">{{ "{:,.0f}".format(product.price) }}
+                    KES</span>
+                {% endif %}
+            </div>
+
+            <div style="margin-bottom: 40px;">
+                <h3
+                    style="font-size: 13px; text-transform: uppercase; color: #86868b; margin-bottom: 15px; letter-spacing: 1px; font-weight: 700;">
+                    Overview</h3>
+                <p style="font-size: 17px; line-height: 1.6; color: #1d1d1f; font-weight: 400;">{{ product.description
+                    }}</p>
+            </div>
+
+            {% if product.specifications %}
+            <div style="margin-bottom: 40px;">
+                <h3
+                    style="font-size: 13px; text-transform: uppercase; color: #86868b; margin-bottom: 15px; letter-spacing: 1px; font-weight: 700;">
+                    Specifications</h3>
+                <div style="background: #fbfbfd; border-radius: 18px; padding: 24px; border: 1px solid #f5f5f7;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 15px;">
+                        {% for spec in product.specifications.split(',') %}
+                        {% if ':' in spec %}
+                        {% set parts = spec.split(':') %}
+                        <tr style="border-bottom: 1px solid #f5f5f7;">
+                            <td style="padding: 12px 0; color: #86868b; width: 40%;">{{ parts[0].strip() }}</td>
+                            <td style="padding: 12px 0; color: #1d1d1f; font-weight: 600;">{{ parts[1].strip() }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                {% if product.stock > 0 %}
+                <div style="display: flex; gap: 12px; align-items: stretch; height: 56px;">
+                    <div
+                        style="display: flex; align-items: center; background: #f5f5f7; border-radius: 14px; padding: 0 10px;">
+                        <button onclick="changeQty({{ product.id }}, -1)"
+                            style="border: none; background: transparent; padding: 10px 15px; cursor: pointer; color: #0071e3; font-size: 20px; font-weight: 600;">−</button>
+                        <input type="number" id="qty-{{ product.id }}" value="1" min="1" max="{{ product.stock }}"
+                            style="width: 45px; border: none; background: transparent; text-align: center; font-size: 17px; font-weight: 700; outline: none; -moz-appearance: textfield;">
+                        <button onclick="changeQty({{ product.id }}, 1)"
+                            style="border: none; background: transparent; padding: 10px 15px; cursor: pointer; color: #0071e3; font-size: 20px; font-weight: 600;">+</button>
+                    </div>
+
+                    <button onclick="addToCart({{ product.id }}, this)" class="btn"
+                        style="flex-grow: 1; border-radius: 14px; font-size: 17px; font-weight: 600;">
+                        Add to Bag
+                    </button>
+                </div>
+
+                <a href="https://wa.me/2547XXXXXXXX?text=Hi, I am interested in the {{ product.name }}" target="_blank"
+                    style="display: flex; align-items: center; justify-content: center; height: 56px; border: 1.5px solid #25d366; color: #25d366; text-decoration: none; border-radius: 14px; font-weight: 600; font-size: 16px; transition: all 0.2s;">
+                    Inquire via WhatsApp
+                </a>
+                {% else %}
+                <button class="btn" style="height: 56px; background: #d2d2d7; cursor: not-allowed; border-radius: 14px;"
+                    disabled>Sold Out</button>
+                {% endif %}
+
+                <p style="font-size: 13px; color: #86868b; text-align: center; margin-top: 15px; font-weight: 500;">
+                    Free delivery within Rongai & Rimpa areas.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function changeImage(src) {
+        const main = document.getElementById('mainImage');
+        main.style.opacity = '0.3';
+        setTimeout(() => {
+            main.src = src;
+            main.style.opacity = '1';
+        }, 200);
+    }
+</script>
+
+<style>
+    /* Hide input arrows */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    @media (max-width: 768px) {
+        .detail-grid {
+            grid-template-columns: 1fr !important;
+            gap: 40px !important;
+        }
+
+        #mainImage {
+            height: 300px !important;
+        }
+    }
+</style>
+{% endblock %}

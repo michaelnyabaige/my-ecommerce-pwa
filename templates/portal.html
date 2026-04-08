@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 800px; margin: 60px auto; padding: 0 22px;">
+    <div style="text-align: center; margin-bottom: 50px;">
+        <h1 style="font-size: 40px; font-weight: 700; letter-spacing: -1px; margin-bottom: 10px;">Order History</h1>
+        <p style="color: #86868b; font-size: 19px;">Enter your phone number to track your accessories.</p>
+    </div>
+
+    <div class="card" style="padding: 30px; margin-bottom: 40px; border: 1px solid rgba(0,0,0,0.05);">
+        <form method="POST" style="display: flex; gap: 15px;">
+            <input type="text" name="phone" placeholder="e.g. 0712345678" value="{{ phone if phone else '' }}" required
+                style="flex-grow: 1; padding: 15px; border: 1px solid #d2d2d7; border-radius: 12px; font-size: 16px;">
+            <button type="submit" class="btn" style="padding: 0 30px;">Find My Orders</button>
+        </form>
+    </div>
+
+    {% if phone %}
+    {% if orders %}
+    <div style="display: grid; gap: 20px;">
+        {% for order in orders %}
+        <div class="card"
+            style="padding: 25px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(0,0,0,0.05);">
+            <div>
+                <p style="font-size: 13px; color: #86868b; margin: 0; text-transform: uppercase; font-weight: 600;">
+                    Order #{{ order.id }}</p>
+                <h3 style="margin: 8px 0; font-size: 18px;">{{ order.items_ordered }}</h3>
+                <p style="font-size: 14px; color: #1d1d1f; margin: 0;">{{ "{:,.0f}".format(order.total_amount) }} KES •
+                    {{ order.date_ordered.strftime('%b %d, %Y') }}</p>
+            </div>
+            <div>
+                {% if order.status == 'Pending' %}
+                <span
+                    style="background: #fff2f2; color: #ff3b30; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;">Processing</span>
+                {% elif order.status == 'Shipped' or order.status == 'Completed' %}
+                <span
+                    style="background: #e5f9e0; color: #34c759; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;">Delivered</span>
+                {% else %}
+                <span
+                    style="background: #f5f5f7; color: #1d1d1f; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;">{{
+                    order.status }}</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 40px;">
+        <p style="color: #86868b;">No orders found for this number. Check the number or place your first order!</p>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display: flex; flex-wrap: wrap; gap: 60px; padding: 80px 0; align-items: center; min-height: 70vh;">
+    <div style="flex: 1; min-width: 320px; text-align: center;">
+        <img src="{{ product.image }}"
+            style="width: 100%; max-width: 500px; border-radius: 20px; mix-blend-mode: multiply;">
+    </div>
+
+    <div style="flex: 1; min-width: 320px;">
+        <span
+            style="color: #bf4800; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">New</span>
+        <h1 style="text-align: left; font-size: 48px; margin: 10px 0 20px 0; line-height: 1.1;">{{ product.name }}</h1>
+        <p style="font-size: 21px; line-height: 1.5; color: var(--apple-text); margin-bottom: 30px;">{{ product.desc }}
+        </p>
+        <p style="font-size: 28px; font-weight: 600; color: var(--apple-text);">{{ "{:,.0f}".format(product.price) }}
+            KES</p>
+
+        <button type="button" onclick="addToCart(event, '{{ product.id }}')" class="btn"
+            style="padding: 16px 50px; font-size: 17px; margin-top: 30px;">
+            Add to Bag
+        </button>
+
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #d2d2d7;">
+            <p style="font-size: 14px; color: var(--apple-gray);">Free delivery and easy returns on all orders.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

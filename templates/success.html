@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 600px; margin: 80px auto; text-align: center; padding: 20px;">
+    <div style="font-size: 80px; margin-bottom: 20px; animation: scaleUp 0.5s ease-out;">✅</div>
+
+    <h1 style="font-size: 42px; margin-bottom: 10px; font-weight: 600;">Order Confirmed!</h1>
+
+    <div style="background: #f9f9f9; border-radius: 18px; padding: 30px; margin-bottom: 40px; border: 1px solid #eee;">
+        <p style="color: var(--apple-gray); font-size: 18px; margin-bottom: 10px;">
+            Order ID: <strong>#{{ order.id }}</strong>
+        </p>
+        <p style="font-size: 24px; font-weight: 600; margin-bottom: 25px;">
+            Total: {{ "{:,.0f}".format(order.total_amount) }} KES
+        </p>
+
+        <hr style="border: 0; border-top: 1px solid #ddd; margin-bottom: 25px;">
+
+        <p style="font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
+            To speed up your delivery, please click the button below to send your order details to us via
+            <strong>WhatsApp</strong>.
+        </p>
+
+        <a href="{{ wa_link }}" target="_blank" class="btn"
+            style="background-color: #25D366; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 18px; border-radius: 12px; text-decoration: none; font-weight: 600; transition: transform 0.2s;">
+            <svg style="width: 24px; height: 24px; fill: currentColor;" viewBox="0 0 24 24">
+                <path
+                    d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.319 1.592 5.448 0 9.886-4.438 9.889-9.886.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.735-.98zm11.367-7.403c-.315-.158-1.86-.918-2.148-1.023-.289-.104-.499-.158-.709.158-.21.316-.814 1.024-1.023 1.235-.21.209-.42.21-.734.053-.314-.158-1.326-.488-2.528-1.558-.935-.834-1.566-1.865-1.749-2.181-.184-.315-.02-.485.137-.642.142-.14.315-.368.473-.553.158-.184.21-.315.315-.526.105-.21.053-.394-.026-.553-.079-.158-.709-1.71-.972-2.341-.255-.615-.515-.532-.709-.541-.183-.009-.394-.009-.604-.009-.21 0-.552.079-.841.394-.289.316-1.104 1.079-1.104 2.632 0 1.553 1.13 3.052 1.288 3.263.158.21 2.221 3.391 5.38 4.755.752.324 1.339.518 1.797.663.755.24 1.442.206 1.984.125.604-.09 1.86-.761 2.122-1.458.262-.697.262-1.289.184-1.42-.078-.132-.289-.21-.604-.368z" />
+            </svg>
+            Send Order via WhatsApp
+        </a>
+    </div>
+
+    <a href="/" style="color: var(--apple-blue); text-decoration: none; font-size: 16px; font-weight: 500;">
+        ← Back to Homepage
+    </a>
+</div>
+
+<style>
+    @keyframes scaleUp {
+        from {
+            transform: scale(0.5);
+            opacity: 0;
+        }
+
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        filter: brightness(1.1);
+    }
+</style>
+{% endblock %}

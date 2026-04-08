@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 500px; margin: 60px auto;">
+    <h1 style="text-align: left; font-size: 42px; margin-bottom: 10px;">Add Product.</h1>
+    <p style="color: var(--apple-gray); margin-bottom: 40px;">Expand your inventory with ease.</p>
+
+    <form method="POST" class="card" style="text-align: left;">
+        <div style="margin-bottom: 20px;">
+            <label style="font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px;">Product Name</label>
+            <input type="text" name="name" placeholder="e.g. iPhone 15 Pro" required>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px;">Price (KES)</label>
+            <input type="text" name="price" placeholder="99000" required>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px;">Image URL</label>
+            <input type="text" name="image" placeholder="https://image-link.com/photo.jpg" required>
+        </div>
+
+        <div style="margin-bottom: 30px;">
+            <label style="font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px;">Description</label>
+            <textarea name="description" rows="4"
+                style="width: 100%; border: 1px solid #d2d2d7; border-radius: 12px; padding: 15px; font-family: inherit; font-size: 16px; outline: none;"
+                required></textarea>
+        </div>
+
+        <button type="submit" class="btn" style="width: 100%; padding: 18px; font-size: 17px;">Add to Inventory</button>
+    </form>
+</div>
+{% endblock %}

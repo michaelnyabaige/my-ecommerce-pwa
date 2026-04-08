@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 400px; margin: 100px auto; padding: 0 20px; text-align: center;">
+    <h1 style="font-size: 32px; font-weight: 700; margin-bottom: 10px;">Admin Login</h1>
+    <p style="color: #86868b; margin-bottom: 30px;">Enter your credentials to manage the store.</p>
+
+    <div class="card" style="padding: 30px;">
+        <form method="POST">
+            <input type="text" name="username" placeholder="Username" required
+                style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #d2d2d7; border-radius: 8px; box-sizing: border-box;">
+
+            <input type="password" name="password" placeholder="Password" required
+                style="width: 100%; padding: 12px; margin-bottom: 25px; border: 1px solid #d2d2d7; border-radius: 8px; box-sizing: border-box;">
+
+            <button type="submit" class="btn" style="width: 100%; padding: 12px;">Sign In</button>
+        </form>
+        <p style="margin-top: 20px; font-size: 13px; color: #86868b;">Tech Store Admin Panel v2.0</p>
+    </div>
+</div>
+{% endblock %}

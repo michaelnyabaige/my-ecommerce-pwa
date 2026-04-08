@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 1100px; margin: 40px auto; padding: 0 22px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px;">
+        <div>
+            <h1 style="font-size: 40px; font-weight: 700; letter-spacing: -1px; margin: 0;">Inventory</h1>
+            <p style="color: #86868b; margin-top: 5px;">Manage your stock and active discounts.</p>
+        </div>
+        <div style="display: flex; gap: 12px;">
+            <a href="/admin/bin" class="btn" style="background: #f5f5f7; color: #1d1d1f;">View Bin</a>
+            <a href="/admin/add" class="btn">+ Add Product</a>
+        </div>
+    </div>
+
+    <div
+        style="background: white; padding: 24px; border-radius: 18px; margin-bottom: 30px; border: 1px solid #e5e5e7; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Bulk Management</h3>
+            <p style="margin: 4px 0 0; color: #86868b; font-size: 14px;">Upload an Excel or CSV file to add multiple
+                products.</p>
+        </div>
+
+        <div style="display: flex; gap: 16px; align-items: center;">
+            <a href="{{ url_for('download_template') }}"
+                style="text-decoration: none; color: #0066cc; font-size: 14px; font-weight: 500;">
+                📥 Download Template
+            </a>
+
+            <form action="{{ url_for('bulk_upload') }}" method="POST" enctype="multipart/form-data"
+                style="display: flex; align-items: center; gap: 12px; background: #f5f5f7; padding: 8px 12px; border-radius: 12px;">
+                <input type="file" name="file" accept=".xlsx, .xls, .csv" required
+                    style="font-size: 13px; color: #1d1d1f; max-width: 200px;">
+                <button type="submit" class="btn" style="padding: 8px 16px; font-size: 14px;">
+                    Upload
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 30px;">
+        <form action="{{ url_for('manage_products') }}" method="GET"
+            style="display: flex; gap: 10px; max-width: 600px;">
+            <div style="position: relative; flex: 1;">
+                <span
+                    style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #86868b;">🔍</span>
+                <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Search by name or SKU..."
+                    style="width: 100%; padding: 12px 12px 12px 42px; border-radius: 12px; border: 1px solid #d2d2d7; font-size: 15px; outline: none;">
+            </div>
+            <button type="submit" class="btn" style="padding: 10px 25px;">Search</button>
+            {% if search_query %}
+            <a href="{{ url_for('manage_products') }}" class="btn"
+                style="background: #f5f5f7; color: #1d1d1f;">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    {% if search_query %}
+    <p style="margin-bottom: 20px; color: #86868b; font-size: 14px;">
+        Showing {{ products|length }} results for "<strong>{{ search_query }}</strong>"
+    </p>
+    {% endif %}
+
+    <div class="card"
+        style="overflow: hidden; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 12px; background: white;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 15px;">
+            <thead>
+                <tr style="background: #f5f5f7; border-bottom: 1px solid #d2d2d7;">
+                    <th style="padding: 16px 20px; font-weight: 600;">Product</th>
+                    <th style="padding: 16px 20px; font-weight: 600;">Base Price</th>
+                    <th style="padding: 16px 20px; font-weight: 600;">Discount</th>
+                    <th style="padding: 16px 20px; font-weight: 600;">Stock</th>
+                    <th style="padding: 16px 20px; font-weight: 600; text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr style="border-bottom: 1px solid #f5f5f7;">
+                    <td style="padding: 18px 20px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            {% set cover = product.images|selectattr('is_cover', 'equalto', True)|first %}
+                            <img src="{{ url_for('static', filename='uploads/products/' + (cover.filename if cover else 'placeholder.png')) }}"
+                                style="width: 40px; height: 40px; object-fit: contain; border-radius: 6px; background: #fbfbfb;">
+                            <span style="font-weight: 500;">{{ product.name }}</span>
+                        </div>
+                    </td>
+                    <td style="padding: 18px 20px; color: #1d1d1f;">{{ "{:,.0f}".format(product.price) }} KES</td>
+                    <td style="padding: 18px 20px;">
+                        {% if product.discount_percent > 0 %}
+                        <span
+                            style="background: #fff2f2; color: #ff3b30; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 13px;">
+                            -{{ product.discount_percent }}%
+                        </span>
+                        {% else %}
+                        <span style="color: #86868b; font-size: 13px;">None</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 18px 20px;">
+                        {% if product.stock == 0 %}
+                        <span style="color: #ff3b30; font-weight: 600;">Sold Out</span>
+                        {% elif product.stock <= 5 %} <span style="color: #ff9500; font-weight: 600;">{{ product.stock
+                            }} Low</span>
+                            {% else %}
+                            {{ product.stock }}
+                            {% endif %}
+                    </td>
+                    <td style="padding: 18px 20px; text-align: right;">
+                        <div style="display: flex; gap: 20px; justify-content: flex-end; align-items: center;">
+                            <a href="{{ url_for('product_detail', slug=product.slug) }}" target="_blank"
+                                style="color: #86868b; text-decoration: none; font-size: 13px;">View</a>
+
+                            <a href="{{ url_for('edit_product', product_id=product.id) }}"
+                                style="color: #0066cc; text-decoration: none; font-weight: 500;">Edit</a>
+
+                            <form action="{{ url_for('delete_product', product_id=product.id) }}" method="POST"
+                                style="margin: 0;" onsubmit="return confirm('Move this item to the bin?')">
+                                <button type="submit"
+                                    style="color: #ff3b30; background: none; border: none; cursor: pointer; font-weight: 500; padding: 0;">
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .btn {
+        display: inline-block;
+        padding: 10px 20px;
+        background: #0071e3;
+        color: white;
+        border-radius: 20px;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 14px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+        opacity: 0.9;
+        transform: scale(1.02);
+    }
+</style>
+{% endblock %}

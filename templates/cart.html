@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 720px; margin: 80px auto;">
+    <h1 style="text-align: left; font-size: 42px; border-bottom: 1px solid #d2d2d7; padding-bottom: 24px;">Review your
+        bag.</h1>
+
+    {% if cart_items %}
+    {% for item in cart_items %}
+    <div
+        style="display: flex; justify-content: space-between; align-items: center; padding: 32px 0; border-bottom: 1px solid #d2d2d7;">
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <img src="{{ item.image }}" style="width: 120px; height: 120px; object-fit: contain;">
+            <div>
+                <span style="font-size: 21px; font-weight: 600; display: block;">{{ item.name }}</span>
+                <span style="color: var(--apple-blue); font-size: 14px;">In stock and ready to ship</span>
+            </div>
+        </div>
+        <span style="font-size: 21px; font-weight: 500;">{{ "{:,.0f}".format(item.price) }} KES</span>
+    </div>
+    {% endfor %}
+
+    <div style="text-align: right; margin-top: 48px;">
+        <div style="margin-bottom: 24px;">
+            <p style="font-size: 17px; color: var(--apple-gray); margin: 0;">Total</p>
+            <p style="font-size: 32px; font-weight: 600; margin: 5px 0 0 0;">{{ "{:,.0f}".format(total) }} KES</p>
+        </div>
+        <!-- <a href="/checkout" class="btn" style="padding: 18px 64px; font-size: 17px; font-weight: 600;">Check Out</a> -->
+        <a href="{{ url_for('checkout') }}" class="btn" style="padding: 18px 64px; font-size: 17px; font-weight: 600;">Check Out</a>
+    </div>
+    {% else %}
+    <div style="margin-top: 60px; text-align: center;">
+        <p style="font-size: 24px; color: var(--apple-gray);">Your bag is empty.</p>
+        <a href="/" class="btn"
+            style="margin-top: 24px; background-color: #f5f5f7; color: var(--apple-blue); border: 1px solid var(--apple-blue);">
+            Continue Shopping
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
